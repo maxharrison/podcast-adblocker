@@ -1,45 +1,41 @@
-import { TextSegment, TextSegmentSchema } from './models';
+import { TextSegment, TextSegmentSchema } from "./models";
 import { z } from 'zod';
+import { Buffer } from 'node:buffer';
+
 
 
 export interface Transcriber {
 	transcribe(audio: ArrayBuffer): Promise<TextSegment[]>;
 }
 
-export class OpenAIWhisperTranscriber implements Transcriber {
-	constructor(private apiKey: string, private model = 'whisper-1') { }
+export class CloudflareWhisperTranscriber implements Transcriber {
+	constructor(private env: Env) {}
 
 	async transcribe(audio: ArrayBuffer): Promise<TextSegment[]> {
-		const file = new File([audio], 'audio.mp3', { type: 'audio/mpeg' });
-		const form = new FormData();
-		form.append('file', file);
-		form.append('model', this.model);
-		form.append('response_format', 'verbose_json');
-
-		const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
-			method: 'POST',
-			headers: { 'Authorization': `Bearer ${this.apiKey}` },
-			body: form
+		const base64 = Buffer.from(audio, 'binary').toString("base64");
+		const res = await this.env.AI.run("@cf/openai/whisper-large-v3-turbo", {
+			"audio": base64
 		});
 
-		const json = await response.json();
+		if (!res || !res.segments || !Array.isArray(res.segments)) {
+			throw new Error("Invalid response from Whisper API");
+		}
 
-		const whisperResponseSchema = z.object({
-			segments: z.array(z.object({
-				text: z.string(),
-				start: z.number(),
-				end: z.number()
+		const segments: TextSegment[] = res.segments.flatMap((segment: any) =>
+			segment.words.map((word: any) => ({
+				startSeconds: word.start,
+				endSeconds: word.end,
+				text: word.word
 			}))
-		});
-
-		const parsed = whisperResponseSchema.parse(json);
-
-		return parsed.segments.map(segment => 
-			TextSegmentSchema.parse({
-				text: segment.text,
-				startSeconds: segment.start,
-				endSeconds: segment.end
-			})
 		);
+
+		const transcription = z.array(TextSegmentSchema).parse(segments);
+
+		if (transcription.length === 0) {
+			throw new Error("No transcription segments found");
+		}
+
+		return transcription;
 	}
 }
+

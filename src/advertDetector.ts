@@ -14,6 +14,7 @@ export class OpenAIGPTAdvertDetector implements AdvertDetector {
 	constructor(private apiKey: string, private model = "gpt-4.1-mini") {
 		this.openai = new OpenAI({
 			apiKey: this.apiKey,
+			baseURL: `https://gateway.ai.cloudflare.com/v1/b1c714b0081cce2fb4ecb39acc16b889/podcast-adblocker/openai`,
 		});
 	};
 
@@ -34,6 +35,8 @@ export class OpenAIGPTAdvertDetector implements AdvertDetector {
 			"and end time of the advert segment in seconds.";
 
 		const serialisedTextSegments = this._serialiseTextSegments(textSegments);
+
+		console.log("Serialised Text Segments:", serialisedTextSegments);
 
 		const response = await this.openai.responses.parse({
 			model: this.model,
@@ -97,6 +100,8 @@ export class OpenAIGPTAdvertDetector implements AdvertDetector {
 			},
 		});
 
+		console.log("OpenAI response:", response);
+
 		const result = z.object({
 			timeRanges: z.array(TimeRangeSchema),
 		}).safeParse(response.output_parsed);
@@ -104,7 +109,15 @@ export class OpenAIGPTAdvertDetector implements AdvertDetector {
 		if (!result.success) {
 			throw new Error(`Failed to parse advert segments: ${result.error.message}`);
 		}
+
+		const advertSegments = result.data.timeRanges;
+
+		if (advertSegments.length === 0) {
+			throw new Error("No advert segments detected");
+		}
+
+		console.log("Advert segments length:", advertSegments.length);
 		
-		return result.data.timeRanges
+		return advertSegments;
 	}
 }

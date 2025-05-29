@@ -1,19 +1,16 @@
-// import dotenv from 'dotenv';
-import { PodcastDownloader } from './podcastDownloader';
-// import { Transcriber, OpenAIWhisperTranscriber } from './transcriber';
-// import { AdvertDetector, OpenAIGPTAdvertDetector } from './advertDetector';
-import { AdvertStripper, AdvertStripperV1 } from './advertStripper';
-import { Exporter, S3Exporter } from './exporter';
+import { PodcastDownloader } from "./podcastDownloader";
+import { Transcriber, CloudflareWhisperTranscriber } from "./transcriber";
+import { AdvertDetector, OpenAIGPTAdvertDetector } from "./advertDetector";
+import { AdvertStripper, FlyAdvertStripper } from "./advertStripper";
+import { Exporter, R2Exporter } from "./exporter";
 
-
-// dotenv.config();
 
 
 export class PodcastProcessor {
 	constructor(
 		private podcastDownloader: PodcastDownloader,
-		// private transcriber: Transcriber,
-		// private advertDetector: AdvertDetector,
+		private transcriber: Transcriber,
+		private advertDetector: AdvertDetector,
 		private advertStripper: AdvertStripper,
 		private exporter: Exporter,
 		private podcastFeedUrl: string,
@@ -21,24 +18,25 @@ export class PodcastProcessor {
 
 	public async run(): Promise<void> {
 		console.log('Downloading latest episode...');
-		const audioBuffer = await this.podcastDownloader.downloadLatestEpisode(this.podcastFeedUrl);
-		console.log('Podcast downloaded');
+		const { audioBuffer, audioUrl } = await this.podcastDownloader.downloadLatestEpisode(this.podcastFeedUrl);
+		console.log('Podcast downloaded: ', audioUrl);
 
-		// console.log('\nTranscribing podcast...');
-		// const transcription = await this.transcriber.transcribe(audioBuffer);
-		// console.log('Podcast transcribed');
+		console.log('\nTranscribing podcast...');
+		const transcription = await this.transcriber.transcribe(audioBuffer);
+		console.log('Podcast transcribed: ', transcription);
 
-		// console.log('\nDetecting advert segments...');
-		// const advertSegments = await this.advertDetector.detectAdvertSegments(transcription);
-		// console.log('Advert segments detected');
+		console.log(`\nTranscription: ${transcription.map(segment => `${segment.startSeconds.toFixed(2)} - ${segment.endSeconds.toFixed(2)}: ${segment.text}`).join('\n')}`);
 
-		const advertSegments = [
-			{ startSeconds: 0, endSeconds: 10 },
-			{ startSeconds: 30, endSeconds: 40 },
-		]
+		console.log('\nDetecting advert segments...');
+		const advertSegments = await this.advertDetector.detectAdvertSegments(transcription);
+		const advertSegmentsFormatted = advertSegments.map(segment => ({
+			start: segment.startSeconds.toFixed(2),
+			end: segment.endSeconds.toFixed(2)
+		}));
+		console.log('Advert segments detected: ', advertSegmentsFormatted);
 
 		console.log('\nStripping adverts...');
-		const strippedAudio = await this.advertStripper.stripAdverts(audioBuffer, advertSegments);
+		const strippedAudio = await this.advertStripper.stripAdverts(audioUrl, advertSegments);
 		console.log('Adverts stripped');
 
 		console.log('\nExporting results...');
@@ -47,39 +45,33 @@ export class PodcastProcessor {
 	}
 }
 
-// async function main() {
-// 	const processor = new PodcastProcessor(
-// 		new PodcastDownloader(),
-// 		new OpenAIWhisperTranscriber(process.env.OPENAI_API_KEY!),
-// 		new OpenAIGPTAdvertDetector(process.env.OPENAI_API_KEY!),
-// 		new AdvertStripperV1(),
-// 		new FileExporter(),
-// 		process.env.PODCAST_FEED_URL!
-// 	);
 
-// 	await processor.run();
-// }
+export default {
+	async fetch(req, env: Env): Promise<Response> {
 
-// main();
+		const processor = new PodcastProcessor(
+			new PodcastDownloader(),
+			new CloudflareWhisperTranscriber(env),
+			new OpenAIGPTAdvertDetector(env.OPENAI_API_KEY),
+			new FlyAdvertStripper(env.FLY_ENDPOINT, env.FLY_API_KEY),
+			new R2Exporter(env),
+			"https://rss.acast.com/ftnewsbriefing"
+		);
 
-export const handler = async () => {
+		await processor.run();
 
-	const s3BucketName = "podcast-adblocker-bucket";
+		return new Response(`Success.`);
+	},
 
-    // if (!s3BucketName) {
-    //     console.error("S3_BUCKET_NAME environment variable is not set!");
-    //     throw new Error("S3_BUCKET_NAME is not set.");
-    // }
+	// async scheduled(event, env, ctx): Promise<void> {
 
+	// 	console.log(`Scheduled event fired`);
 
-	const processor = new PodcastProcessor(
-		new PodcastDownloader(),
-		// new OpenAIWhisperTranscriber(process.env.OPENAI_API_KEY!),
-		// new OpenAIGPTAdvertDetector(process.env.OPENAI_API_KEY!),
-		new AdvertStripperV1(),
-		new S3Exporter(s3BucketName),
-		"https://rss.acast.com/ftnewsbriefing"
-	);
+	// 	const processor = new PodcastProcessor(
+	// 	);
 
-	await processor.run();
-};
+	// 	await processor.run();
+	// },
+
+} satisfies ExportedHandler<Env>;
+  
