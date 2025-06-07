@@ -1,21 +1,35 @@
 {
-	"name": "podcast-adblocker",
-	"version": "0.0.0",
-	"private": true,
-	"scripts": {
-		"deploy": "wrangler deploy",
-		"dev": "wrangler dev --test-scheduled",
-		"start": "wrangler dev --test-scheduled",
-		"cf-typegen": "wrangler types"
-	},
-	"devDependencies": {
-		"typescript": "^5.5.2",
-		"wrangler": "^4.16.1"
-	},
-	"dependencies": {
-		"@types/node": "^22.15.21",
-		"openai": "^4.103.0",
-		"rss-parser": "^3.13.0",
-		"zod": "^3.25.28"
-	}
+  "name": "podcast-adblocker",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "npx ts-node source/main.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/maxharrison/podcast-adblocker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/maxharrison/podcast-adblocker/issues"
+  },
+  "homepage": "https://github.com/maxharrison/podcast-adblocker#readme",
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.8.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.821.0",
+    "@ffmpeg-installer/ffmpeg": "^1.1.0",
+    "@types/fluent-ffmpeg": "^2.1.27",
+    "dotenv": "^16.5.0",
+    "fluent-ffmpeg": "^2.1.3",
+    "music-metadata": "^11.2.3",
+    "openai": "^5.0.1",
+    "rss-parser": "^3.13.0",
+    "zod": "^3.25.36"
+  }
 }
