@@ -107,7 +107,7 @@ export class R2Exporter implements Exporter {
         xmlns:podcast="https://podcastindex.org/namespace/1.0">
     <channel>
         <atom:link href="${feedLink}" rel="self" type="application/rss+xml" />
-        <title>${feedMetadata.title}</title>
+        <title>${feedMetadata.title} - Adblocked</title>
         <description><![CDATA[${feedMetadata.description}]]></description>
         <link>${feedMetadata.link}</link>
         <language>${feedMetadata.language}</language>
